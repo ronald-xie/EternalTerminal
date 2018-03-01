@@ -173,6 +173,36 @@ target_link_libraries (
     ${CORE_LIBRARIES}
 )
 
+PROTOBUF_GENERATE_CPP(
+  HTM_SRCS
+  HTM_HDRS
+
+  proto/HTM.proto
+  )
+
+add_executable (
+  htm
+
+  ${HTM_SRCS}
+  htm/Main.cpp
+  )
+
+target_link_libraries (
+  htm
+  LINK_PUBLIC
+  TerminalCommon
+  EternalTCP-static
+  ${CMAKE_THREAD_LIBS_INIT}
+  ${PROTOBUF_LIBRARIES}
+  ${GLOG_LIBRARIES}
+  ${GFLAGS_LIBRARIES}
+  ${sodium_LIBRARY_RELEASE}
+  ${SELINUX_LIBRARIES}
+  ${UTEMPTER_LIBRARIES}
+  ${CORE_LIBRARIES}
+)
+
+
 if(BUILD_TEST) # Build unit tests.
   message(STATUS "Enabling test for ${PROJECT_NAME}")
   enable_testing()

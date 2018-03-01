@@ -1,0 +1,60 @@
+syntax = "proto2";
+package htm;
+
+enum PacketHeader {
+  UPDATE_WINDOWS = 0;
+  INSERT_KEYS = 1;
+  INIT_STATE = 2;
+  CLOSE_PANE = 3;
+  APPEND_TO_PANE = 4;
+  SET_PANE_TITLE = 5;
+}
+
+message PaneDataPair {
+  optional string pane_id = 1;
+  optional bytes data = 2;
+}
+
+message Pane {
+  optional int32 id = 1;
+  optional int32 x = 2;
+  optional int32 y = 3;
+  optional int32 width = 4;
+  optional int32 height = 5;
+  optional int32 rows = 6;
+  optional int32 columns = 7;
+  optional int32 order = 8;
+  optional bool active = 9;
+  optional string title = 10;
+}
+
+message Tab {
+  optional int32 id = 1;
+  optional int32 order = 2;
+  optional bool active = 3;
+  repeated Pane panes = 4;
+}
+
+message Window {
+  optional int32 id = 1;
+  optional int32 x = 2;
+  optional int32 y = 3;
+  optional int32 width = 4;
+  optional int32 height = 5;
+  optional int32 order = 6;
+  repeated Tab tabs = 7;
+}
+
+message Buffer {
+  optional string pane_id = 1;
+  optional bytes content = 2;
+}
+
+message WindowList {
+  repeated Window windows = 1;
+}
+
+message State {
+  optional WindowList window_list = 1;
+  repeated Buffer buffers = 2;
+}
