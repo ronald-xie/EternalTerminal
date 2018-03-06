@@ -1,4 +1,4 @@
-syntax = "proto2";
+syntax = "proto3";
 package htm;
 
 enum PacketHeader {
@@ -11,43 +11,43 @@ enum PacketHeader {
 }
 
 message PaneDataPair {
-  optional string pane_id = 1;
-  optional bytes data = 2;
+  string pane_id = 1;
+  bytes data = 2;
 }
 
 message Pane {
-  optional int32 id = 1;
-  optional int32 x = 2;
-  optional int32 y = 3;
-  optional int32 width = 4;
-  optional int32 height = 5;
-  optional int32 rows = 6;
-  optional int32 columns = 7;
-  optional int32 order = 8;
-  optional bool active = 9;
-  optional string title = 10;
+  int32 id = 1;
+  int32 x = 2;
+  int32 y = 3;
+  int32 width = 4;
+  int32 height = 5;
+  int32 rows = 6;
+  int32 columns = 7;
+  int32 order = 8;
+  bool active = 9;
+  string title = 10;
 }
 
 message Tab {
-  optional int32 id = 1;
-  optional int32 order = 2;
-  optional bool active = 3;
+  int32 id = 1;
+  int32 order = 2;
+  bool active = 3;
   repeated Pane panes = 4;
 }
 
 message Window {
-  optional int32 id = 1;
-  optional int32 x = 2;
-  optional int32 y = 3;
-  optional int32 width = 4;
-  optional int32 height = 5;
-  optional int32 order = 6;
+  int32 id = 1;
+  int32 x = 2;
+  int32 y = 3;
+  int32 width = 4;
+  int32 height = 5;
+  int32 order = 6;
   repeated Tab tabs = 7;
 }
 
 message Buffer {
-  optional string pane_id = 1;
-  optional bytes content = 2;
+  string pane_id = 1;
+  bytes content = 2;
 }
 
 message WindowList {
@@ -55,6 +55,6 @@ message WindowList {
 }
 
 message State {
-  optional WindowList window_list = 1;
+  WindowList window_list = 1;
   repeated Buffer buffers = 2;
 }

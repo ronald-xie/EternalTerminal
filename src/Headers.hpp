@@ -40,6 +40,7 @@
 #include <glog/logging.h>
 
 #include <google/protobuf/message.h>
+#include <google/protobuf/util/json_util.h>
 #include "ET.pb.h"
 
 using namespace std;
