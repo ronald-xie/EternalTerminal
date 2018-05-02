@@ -61,9 +61,6 @@ void UserTerminalHandler::connectToRouter(const string &idPasskey) {
   }
   try {
     RawSocketUtils::writeMessage(routerFd, idPasskey);
-    ConfigParams config = RawSocketUtils::readProto<ConfigParams>(routerFd);
-    FLAGS_v = config.vlevel();
-    FLAGS_minloglevel = config.minloglevel();
   } catch (const std::runtime_error &re) {
     LOG(FATAL) << "Error connecting to router: " << re.what();
   }
@@ -81,8 +78,7 @@ void UserTerminalHandler::run() {
       passwd *pwd = getpwuid(getuid());
       chdir(pwd->pw_dir);
       string terminal = string(::getenv("SHELL"));
-      VLOG(1) << "Child process " << pid << " launching terminal " << terminal
-              << endl;
+      VLOG(1) << "Child process " << pid << " launching terminal " << terminal;
       setenv("ET_VERSION", ET_VERSION, 1);
       execl(terminal.c_str(), terminal.c_str(), "--login", NULL);
       exit(0);
@@ -90,7 +86,7 @@ void UserTerminalHandler::run() {
     }
     default: {
       // parent
-      VLOG(1) << "pty opened " << masterfd << endl;
+      VLOG(1) << "pty opened " << masterfd;
       runUserTerminal(masterfd, pid);
       close(routerFd);
       break;

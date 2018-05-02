@@ -1,8 +1,8 @@
 #include "ClientConnection.hpp"
 #include "CryptoHandler.hpp"
 #include "FlakyFakeSocketHandler.hpp"
-#include "GoogleLogFatalHandler.hpp"
 #include "Headers.hpp"
+#include "LogHandler.hpp"
 #include "ParseConfigFile.hpp"
 #include "PortForwardHandler.hpp"
 #include "PortForwardSourceHandler.hpp"
@@ -48,6 +48,9 @@ DEFINE_string(rt, "",
 DEFINE_string(jumphost, "", "jumphost between localhost and destination");
 DEFINE_int32(jport, 2022, "port to connect on jumphost");
 DEFINE_bool(x, false, "flag to kill all old sessions belonging to the user");
+DEFINE_int32(v, 0, "verbose level");
+DEFINE_bool(logtostdout, false, "log to stdout");
+DEFINE_bool(silent, false, "If enabled, disable logging");
 
 shared_ptr<ClientConnection> createClient(string idpasskeypair) {
   string id = "", passkey = "";
@@ -59,7 +62,7 @@ shared_ptr<ClientConnection> createClient(string idpasskeypair) {
   } else {
     id = idpasskeypair.substr(0, slashIndex);
     passkey = idpasskeypair.substr(slashIndex + 1);
-    LOG(INFO) << "ID PASSKEY: " << id << " " << passkey << endl;
+    LOG(INFO) << "ID PASSKEY: " << id << " " << passkey;
   }
   if (passkey.length() != 32) {
     LOG(FATAL) << "Invalid/missing passkey: " << passkey << " "
@@ -93,7 +96,7 @@ shared_ptr<ClientConnection> createClient(string idpasskeypair) {
     }
     break;
   }
-  VLOG(1) << "Client created with id: " << client->getId() << endl;
+  VLOG(1) << "Client created with id: " << client->getId();
 
   return client;
 };
@@ -108,7 +111,7 @@ void handleWindowChanged(winsize* win) {
     firstWindowChangedCall = 0;
     *win = tmpwin;
     LOG(INFO) << "Window size changed: " << win->ws_row << " " << win->ws_col
-              << " " << win->ws_xpixel << " " << win->ws_ypixel << endl;
+              << " " << win->ws_xpixel << " " << win->ws_ypixel;
     TerminalInfo ti;
     ti.set_row(win->ws_row);
     ti.set_column(win->ws_col);
@@ -138,7 +141,7 @@ vector<pair<int, int>> parseRangesToPairs(const string& input) {
 
         if (sourcePortEnd - sourcePortStart !=
             destinationPortEnd - destinationPortStart) {
-          LOG(FATAL) << "source/destination port range mismatch" << endl;
+          LOG(FATAL) << "source/destination port range mismatch";
           exit(1);
         } else {
           int portRangeLength = sourcePortEnd - sourcePortStart + 1;
@@ -157,7 +160,7 @@ vector<pair<int, int>> parseRangesToPairs(const string& input) {
         pairs.push_back(make_pair(sourcePort, destinationPort));
       }
     } catch (const std::logic_error& lr) {
-      LOG(FATAL) << "Logic error: " << lr.what() << endl;
+      LOG(FATAL) << "Logic error: " << lr.what();
       exit(1);
     }
   }
@@ -165,6 +168,30 @@ vector<pair<int, int>> parseRangesToPairs(const string& input) {
 }
 
 int main(int argc, char** argv) {
+  // Version string need to be set before GFLAGS parse arguments
+  SetVersionString(string(ET_VERSION));
+
+  // Setup easylogging configurations
+  el::Configurations defaultConf = LogHandler::SetupLogHandler(&argc, &argv);
+
+  if (FLAGS_logtostdout) {
+    defaultConf.setGlobally(el::ConfigurationType::ToStandardOutput, "true");
+  } else {
+    defaultConf.setGlobally(el::ConfigurationType::ToStandardOutput, "false");
+  }
+
+  // silent Flag, since etclient doesn't read /etc/et.cfg file
+  if (FLAGS_silent) {
+    defaultConf.setGlobally(el::ConfigurationType::Enabled, "false");
+  }
+
+  LogHandler::SetupLogFile(&defaultConf, "/tmp/etclient-%datetime.log");
+
+  el::Loggers::reconfigureLogger("default", defaultConf);
+
+  // Install log rotation callback
+  el::Helpers::installPreRollOutCallback(LogHandler::rolloutHandler);
+
   // Override -h & --help
   for (int i = 1; i < argc; i++) {
     string s(argv[i]);
@@ -183,19 +210,15 @@ int main(int argc, char** argv) {
               "to localhost:8000\n"
               "-jumphost Jumphost between localhost and destination\n"
               "-jport Port to connect on jumphost\n"
-              "-x Flag to kill all sessions belongs to the user"
+              "-x Flag to kill all sessions belongs to the user\n"
+              "-logtostdout Sent log message to stdout\n"
+              "-silent Disable all logs"
            << endl;
       exit(1);
     }
   }
 
-  SetVersionString(string(ET_VERSION));
-  ParseCommandLineFlags(&argc, &argv, true);
-  google::InitGoogleLogging(argv[0]);
-  GoogleLogFatalHandler::handle();
   GOOGLE_PROTOBUF_VERIFY_VERSION;
-  FLAGS_logbufsecs = 0;
-  FLAGS_logbuflevel = google::GLOG_INFO;
   srand(1);
 
   // Parse command-line argument
@@ -299,7 +322,7 @@ int main(int argc, char** argv) {
   bool waitingOnKeepalive = false;
 
   if (FLAGS_c.length()) {
-    LOG(INFO) << "Got command: " << FLAGS_c << endl;
+    LOG(INFO) << "Got command: " << FLAGS_c;
     et::TerminalBuffer tb;
     tb.set_buffer(FLAGS_c + "; exit\n");
 
@@ -337,7 +360,7 @@ int main(int argc, char** argv) {
     }
   } catch (const std::runtime_error& ex) {
     cerr << "Error establishing port forward: " << ex.what() << endl;
-    LOG(FATAL) << "Error establishing port forward: " << ex.what() << endl;
+    LOG(FATAL) << "Error establishing port forward: " << ex.what();
   }
 
   winsize win;
@@ -387,8 +410,6 @@ int main(int argc, char** argv) {
           globalClient->writeMessage(headerString);
           globalClient->writeProto(tb);
           keepaliveTime = time(NULL) + KEEP_ALIVE_DURATION;
-        } else {
-          LOG(FATAL) << "Got an error reading from stdin: " << rc;
         }
       }
 
@@ -427,7 +448,7 @@ int main(int argc, char** argv) {
               waitingOnKeepalive = false;
               break;
             default:
-              LOG(FATAL) << "Unknown packet type: " << int(packetType) << endl;
+              LOG(FATAL) << "Unknown packet type: " << int(packetType);
           }
         }
       }
@@ -464,15 +485,17 @@ int main(int argc, char** argv) {
         globalClient->writeProto(pwd);
       }
     } catch (const runtime_error& re) {
-      LOG(ERROR) << "Error: " << re.what() << endl;
+      LOG(ERROR) << "Error: " << re.what();
       tcsetattr(0, TCSANOW, &terminal_backup);
       cout << "Connection closing because of error: " << re.what() << endl;
       run = false;
     }
   }
   globalClient.reset();
-  LOG(INFO) << "Client derefernced" << endl;
+  LOG(INFO) << "Client derefernced";
   tcsetattr(0, TCSANOW, &terminal_backup);
   cout << "Session terminated" << endl;
+  // Uninstall log rotation callback
+  el::Helpers::uninstallPreRollOutCallback();
   return 0;
 }

@@ -2,21 +2,24 @@ cmake_minimum_required (VERSION 2.8.12)
 project (EternalTCP)
 
 option(BUILD_TEST "Build all unit test" OFF)
-option(BUILD_PACKAGE "Builds the package" OFF)
 
 
 set (${PROJECT_NAME}_VERSION_MAJOR 4)
 set (${PROJECT_NAME}_VERSION_MINOR 2)
 set (${PROJECT_NAME}_VERSION_PATCH 1)
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DET_VERSION='\"${EternalTCP_VERSION_MAJOR}.${EternalTCP_VERSION_MINOR}.${EternalTCP_VERSION_PATCH}\"'")
-
+# For easylogging, disable default log file, enable crash log and ensure thread safe
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DELPP_NO_DEFAULT_LOG_FILE -DELPP_FEATURE_CRASH_LOG -DELPP_THREAD_SAFE")
 IF(BUILD_TEST)
-  add_subdirectory(${CMAKE_SOURCE_DIR}/cmake/external/googletest)
+  add_subdirectory(${CMAKE_SOURCE_DIR}/external/googletest)
+  if(UNIX)
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-arcs -ftest-coverage")
+  endif()
 ENDIF(BUILD_TEST)
 
 # Enable C++-11
 if(UNIX)
-  SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11")
 endif()
 
 #Using FreeBSD?
@@ -29,7 +32,6 @@ LIST(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 
 # Find packages
 find_package(Threads REQUIRED)
-find_package(Glog REQUIRED)
 find_package(GFlags REQUIRED)
 find_package(Protobuf REQUIRED)
 find_package(Sodium REQUIRED)
@@ -74,7 +76,6 @@ include_directories(
   ${CURSES_INCLUDE_DIR}
   ${sodium_INCLUDE_DIR}
   ${GFLAGS_INCLUDE_DIRS}
-  ${GLOG_INCLUDE_DIRS}
   ${SELINUX_INCLUDE_DIR}
   ${UTEMPTER_INCLUDE_DIR}
   )
@@ -92,6 +93,7 @@ set(${PROJECT_NAME}_SRC
   src/ServerConnection.cpp
   src/SocketHandler.cpp
   src/UnixSocketHandler.cpp
+  src/easylogging++.cc
 
   ${ET_SRCS} ${ET_HDRS}
   )
@@ -125,7 +127,7 @@ add_library(
   terminal/PortForwardHandler.cpp
   terminal/PortForwardSourceHandler.cpp
   terminal/PortForwardDestinationHandler.cpp
-  terminal/GoogleLogFatalHandler.cpp
+  terminal/LogHandler.cpp
 
   ${ETERMINAL_SRCS} ${ETERMINAL_HDRS}
   )
@@ -145,7 +147,6 @@ target_link_libraries (
   EternalTCP-static
   ${CMAKE_THREAD_LIBS_INIT}
   ${PROTOBUF_LIBRARIES}
-  ${GLOG_LIBRARIES}
   ${GFLAGS_LIBRARIES}
   ${sodium_LIBRARY_RELEASE}
   ${SELINUX_LIBRARIES}
@@ -166,7 +167,6 @@ target_link_libraries (
     EternalTCP-static
     ${CMAKE_THREAD_LIBS_INIT}
     ${PROTOBUF_LIBRARIES}
-    ${GLOG_LIBRARIES}
     ${GFLAGS_LIBRARIES}
     ${sodium_LIBRARY_RELEASE}
     ${UTEMPTER_LIBRARIES}
@@ -208,54 +208,6 @@ if(BUILD_TEST) # Build unit tests.
   enable_testing()
   add_subdirectory(sandbox)
   add_subdirectory(test)
-endif()
-
-if(BUILD_PACKAGE)
-  message(STATUS "Building Package for ${PROJECT_NAME}")
-
-  set(CPACK_PACKAGE_NAME "et")
-  set(CPACK_PACKAGE_VERSION_MAJOR ${${PROJECT_NAME}_VERSION_MAJOR})
-  set(CPACK_PACKAGE_VERSION_MINOR ${${PROJECT_NAME}_VERSION_MINOR})
-  set(CPACK_PACKAGE_VERSION_PATCH ${${PROJECT_NAME}_VERSION_PATCH})
-
-  set(CPACK_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
-  set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}")
-  set(CPACK_PACKAGE_VENDOR "Jason Gauci")
-  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Remote shell supporting IP roaming and connection loss.")
-  set(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/README.md")
-
-  # Strip files currently does not work, may be related to install TARGET
-  set(CPACK_SOURCE_STRIP_FILES "")
-  set(CPACK_STRIP_FILES "${CMAKE_BINARY_DIR}/${PROJECT_NAME}")
-
-  if(WIN32 AND NOT UNIX)
-    # for windows
-  elseif(APPLE)
-    # for mac
-    set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-mac-${CPACK_PACKAGE_VERSION}")
-    set(CPACK_GENERATOR "TGZ")
-  else()
-    set(CPACK_GENERATOR "DEB" "RPM")
-
-    # Debian-specific
-    set(CPACK_DEBIAN_PACKAGE_NAME "et")
-    set(CPACK_PACKAGING_INSTALL_PREFIX "/usr/")
-    set(CPACK_DEBIAN_PACKAGE_SECTION "bin")
-    # This will resolve dependencies automatically
-    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-    set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Jason Gauci")
-
-    # RPM-specific
-    set(CPACK_RPM_PACKAGE_NAME "et")
-    set(CPACK_RPM_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION}")
-    set(CPACK_RPM_PACKAGE_REQUIRES "libsodium, protobuf, gflags, glog")
-
-    #To build and verify
-    #cpack && lintian -c EternalTCP-#.#.#-Linux.deb
-  endif()
-
-  include(CPack)
-
 endif()
 
 install(TARGETS etserver et

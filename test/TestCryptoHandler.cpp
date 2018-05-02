@@ -4,9 +4,9 @@
 
 #include "CryptoHandler.hpp"
 
-using namespace et;
+INITIALIZE_EASYLOGGINGPP
 
-TEST(A, B) { SUCCEED(); }
+using namespace et;
 
 TEST(CryptoHandler, DoesEncryptDecrypt) {
   string key = "12345678901234567890123456789012";
@@ -17,12 +17,4 @@ TEST(CryptoHandler, DoesEncryptDecrypt) {
   EXPECT_NE(message, encryptedMessage);
   string decryptedMessage = decryptHandler->decrypt(encryptedMessage);
   EXPECT_EQ(message, decryptedMessage);
-}
-
-int main(int argc, char **argv) {
-  srand(1);
-  google::InitGoogleLogging(argv[0]);
-  gflags::ParseCommandLineFlags(&argc, &argv, true);
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
 }

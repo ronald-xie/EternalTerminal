@@ -10,7 +10,7 @@ string SshSetupHandler::SetupSsh(string user, string host, string host_alias,
   FILE *passkey_p = popen(
       "env LC_ALL=C tr -dc \"a-zA-Z0-9\" < /dev/urandom | head -c 32", "r");
   if (!passkey_p) {
-    LOG(FATAL) << "cannot generate passkey!" << endl;
+    LOG(FATAL) << "cannot generate passkey!";
     exit(1);
   }
   char passkey_buffer[1024];
@@ -21,7 +21,7 @@ string SshSetupHandler::SetupSsh(string user, string host, string host_alias,
   FILE *id_p = popen(
       "env LC_ALL=C tr -dc \"a-zA-Z0-9\" < /dev/urandom | head -c 16", "r");
   if (!id_p) {
-    LOG(FATAL) << "cannot generate id!" << endl;
+    LOG(FATAL) << "cannot generate id!";
     exit(1);
   }
   char id_buffer[1024];
@@ -52,7 +52,7 @@ string SshSetupHandler::SetupSsh(string user, string host, string host_alias,
   int link_client[2];
   char buf_client[4096];
   if (pipe(link_client) == -1) {
-    LOG(FATAL) << "pipe" << endl;
+    LOG(FATAL) << "pipe";
     exit(1);
   }
 
@@ -67,20 +67,18 @@ string SshSetupHandler::SetupSsh(string user, string host, string host_alias,
     close(link_client[0]);
     close(link_client[1]);
     if (!jumphost.empty()) {
-      execl("/usr/bin/ssh", "/usr/bin/ssh", "-J",
-            (SSH_USER_PREFIX + jumphost).c_str(),
-            (SSH_USER_PREFIX + host_alias).c_str(), (SSH_SCRIPT_DST).c_str(),
-            NULL);
+      execlp("ssh", "ssh", "-J", (SSH_USER_PREFIX + jumphost).c_str(),
+             (SSH_USER_PREFIX + host_alias).c_str(), (SSH_SCRIPT_DST).c_str(),
+             NULL);
     } else {
-      execl("/usr/bin/ssh", "/usr/bin/ssh",
-            (SSH_USER_PREFIX + host_alias).c_str(), (SSH_SCRIPT_DST).c_str(),
-            NULL);
+      execlp("ssh", "ssh", (SSH_USER_PREFIX + host_alias).c_str(),
+             (SSH_SCRIPT_DST).c_str(), NULL);
     }
 
-    LOG(INFO) << "execl error" << endl;
+    LOG(INFO) << "execl error";
     exit(1);
   } else if (pid < 0) {
-    LOG(INFO) << "Failed to fork" << endl;
+    LOG(INFO) << "Failed to fork";
     exit(1);
   } else {
     close(link_client[1]);
@@ -100,11 +98,11 @@ string SshSetupHandler::SetupSsh(string user, string host, string host_alias,
       string returned_id = idpasskey_splited[0];
       string returned_passkey = idpasskey_splited[1];
       if (returned_id == id && returned_passkey == passkey) {
-        LOG(INFO) << "etserver started" << endl;
+        LOG(INFO) << "etserver started";
       } else {
         LOG(FATAL) << "client/server idpasskey doesn't match: " << id
                    << " != " << returned_id << " or " << passkey
-                   << " != " << returned_passkey << endl;
+                   << " != " << returned_passkey;
       }
     } catch (const runtime_error &err) {
       cout << "Error initializing connection" << err.what() << endl;
@@ -116,12 +114,12 @@ string SshSetupHandler::SetupSsh(string user, string host, string host_alias,
       int link_jump[2];
       char buf_jump[4096];
       if (pipe(link_jump) == -1) {
-        LOG(FATAL) << "pipe" << endl;
+        LOG(FATAL) << "pipe";
         exit(1);
       }
       pid_t pid_jump = fork();
       if (pid_jump < 0) {
-        LOG(FATAL) << "Failed to fork" << endl;
+        LOG(FATAL) << "Failed to fork";
         exit(1);
       } else if (pid_jump == 0) {
         dup2(link_jump[1], 1);
@@ -131,8 +129,7 @@ string SshSetupHandler::SetupSsh(string user, string host, string host_alias,
         cmdoptions +=
             " --jump --dsthost=" + host + " --dstport=" + to_string(port);
         string SSH_SCRIPT_JUMP = SSH_SCRIPT_PREFIX + cmdoptions + ";true";
-        execl("/usr/bin/ssh", "/usr/bin/ssh", jumphost.c_str(),
-              (SSH_SCRIPT_JUMP).c_str(), NULL);
+        execlp("ssh", "ssh", jumphost.c_str(), (SSH_SCRIPT_JUMP).c_str(), NULL);
       } else {
         close(link_jump[1]);
         wait(NULL);
@@ -149,7 +146,7 @@ string SshSetupHandler::SetupSsh(string user, string host, string host_alias,
           string returned_id = idpasskey_splited[0];
           string returned_passkey = idpasskey_splited[1];
           if (returned_id == id && returned_passkey == passkey) {
-            LOG(INFO) << "jump client started." << endl;
+            LOG(INFO) << "jump client started.";
           } else {
             LOG(INFO) << "ID " << id;
             LOG(INFO) << "Received ID " << returned_id;
