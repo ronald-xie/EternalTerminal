@@ -1,23 +1,14 @@
-#ifndef __ETERNAL_TCP_RAW_SOCKET_UTILS__
-#define __ETERNAL_TCP_RAW_SOCKET_UTILS__
+#ifndef __HTM_TERMINAL_SOCKET_UTILS__
+#define __HTM_TERMINAL_SOCKET_UTILS__
 
 #include "Headers.hpp"
 
-#include "base64.hpp"
-
 namespace et {
-class RawSocketUtils {
+class TerminalSocketUtils {
  public:
   static int writeAll(int fd, const char* buf, size_t count);
 
   static int readAll(int fd, char* buf, size_t count);
-
-  static inline int writeB64(int fd, const char* buf, size_t count) {
-    int encodedLength = base64::Base64::EncodedLength(count);
-    string s(encodedLength, '\0');
-    base64::Base64::Encode(buf, count, &s[0], s.length());
-    return writeAll(fd, &s[0], s.length());
-  }
 
   static inline string readMessage(int fd) {
     int64_t length;
@@ -96,4 +87,4 @@ class RawSocketUtils {
   }
 };
 }  // namespace et
-#endif  // __ETERNAL_TCP_RAW_SOCKET_UTILS__
+#endif  // __HTM_TERMINAL_SOCKET_UTILS__

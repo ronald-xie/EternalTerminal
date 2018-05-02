@@ -1,48 +1,35 @@
 syntax = "proto3";
-package htm;
+package et;
 
 enum PacketHeader {
-  UPDATE_WINDOWS = 0;
+  ADD_WINDOW = 0;
   INSERT_KEYS = 1;
   INIT_STATE = 2;
   CLOSE_PANE = 3;
   APPEND_TO_PANE = 4;
-  SET_PANE_TITLE = 5;
-}
-
-message PaneDataPair {
-  string pane_id = 1;
-  bytes data = 2;
 }
 
 message Pane {
-  int32 id = 1;
-  int32 x = 2;
-  int32 y = 3;
-  int32 width = 4;
-  int32 height = 5;
-  int32 rows = 6;
-  int32 columns = 7;
-  int32 order = 8;
-  bool active = 9;
-  string title = 10;
+  string id = 1;
+  bool active = 2;
+}
+
+message SplitPane {
+  bool vertical = 1;
+  repeated PaneOrSplitPane panes = 2;
+  repeated float sizes = 3;
+}
+
+message PaneOrSplitPane {
+  Pane pane = 1;
+  SplitPane split_pane = 2;
 }
 
 message Tab {
-  int32 id = 1;
+  string id = 1;
   int32 order = 2;
   bool active = 3;
-  repeated Pane panes = 4;
-}
-
-message Window {
-  int32 id = 1;
-  int32 x = 2;
-  int32 y = 3;
-  int32 width = 4;
-  int32 height = 5;
-  int32 order = 6;
-  repeated Tab tabs = 7;
+  PaneOrSplitPane pane = 4;
 }
 
 message Buffer {
@@ -50,11 +37,8 @@ message Buffer {
   bytes content = 2;
 }
 
-message WindowList {
-  repeated Window windows = 1;
-}
-
 message State {
-  WindowList window_list = 1;
-  repeated Buffer buffers = 2;
+  repeated Tab tab = 1;
+  repeated Buffer buffer = 2;
+  string shell = 3;
 }
