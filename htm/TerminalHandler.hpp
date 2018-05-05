@@ -12,6 +12,8 @@ public:
   void start();
   string pollUserTerminal();
   void appendData(const string &data);
+  inline bool isRunning() { return run; }
+  void stop();
 
 protected:
   int masterFd;

@@ -2,12 +2,15 @@ syntax = "proto3";
 package et;
 
 enum PacketHeader {
-  ADD_WINDOW = 0;
+  EMPTY = 0;
   INSERT_KEYS = 1;
   INIT_STATE = 2;
-  CLOSE_PANE = 3;
+  CLIENT_CLOSE_PANE = 3;
   APPEND_TO_PANE = 4;
   NEW_TAB = 5;
+  CONSOLE_KEYS = 6;
+  APPEND_TO_CONSOLE = 7;
+  SERVER_CLOSE_PANE = 8;
 }
 
 message Pane {

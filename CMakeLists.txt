@@ -186,6 +186,7 @@ add_executable (
   ${HTM_SRCS}
   htm/Main.cpp
   htm/TerminalHandler.cpp
+  htm/MultiplexerState.cpp
   )
 
 target_link_libraries (

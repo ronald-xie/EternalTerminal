@@ -21,7 +21,7 @@
 #include <util.h>
 #elif __FreeBSD__
 #include <libutil.h>
-#elif __NetBSD__ // do not need pty.h on NetBSD
+#elif __NetBSD__  // do not need pty.h on NetBSD
 #else
 #include <pty.h>
 #endif
@@ -36,50 +36,43 @@
 
 #include "ETerminal.pb.h"
 
-namespace et
-{
+namespace et {
 TerminalHandler::TerminalHandler() : run(true) {}
 
-void TerminalHandler::start()
-{
+void TerminalHandler::start() {
   pid_t pid = forkpty(&masterFd, NULL, NULL, NULL);
-  switch (pid)
-  {
-  case -1:
-    FATAL_FAIL(pid);
-  case 0:
-  {
-    passwd *pwd = getpwuid(getuid());
-    chdir(pwd->pw_dir);
-    string terminal = string(::getenv("SHELL"));
-    VLOG(1) << "Child process " << pid << " launching terminal " << terminal
-            << endl;
-    setenv("HTM_VERSION", ET_VERSION, 1);
-    execl(terminal.c_str(), terminal.c_str(), "--login", NULL);
-    exit(0);
-    break;
-  }
-  default:
-  {
-    // parent
-    VLOG(1) << "pty opened " << masterFd << endl;
-    childPid = pid;
-#ifdef WITH_UTEMPTER
-    {
-      char buf[1024];
-      sprintf(buf, "htm [%lld]", (long long)getpid());
-      utempter_add_record(masterFd, buf);
+  switch (pid) {
+    case -1:
+      FATAL_FAIL(pid);
+    case 0: {
+      passwd *pwd = getpwuid(getuid());
+      chdir(pwd->pw_dir);
+      string terminal = string(::getenv("SHELL"));
+      VLOG(1) << "Child process " << pid << " launching terminal " << terminal
+              << endl;
+      setenv("HTM_VERSION", ET_VERSION, 1);
+      execl(terminal.c_str(), terminal.c_str(), "--login", NULL);
+      exit(0);
+      break;
     }
+    default: {
+      // parent
+      VLOG(1) << "pty opened " << masterFd << endl;
+      childPid = pid;
+#ifdef WITH_UTEMPTER
+      {
+        char buf[1024];
+        sprintf(buf, "htm [%lld]", (long long)getpid());
+        utempter_add_record(masterFd, buf);
+      }
 #endif
-    break;
-  }
+      break;
+    }
   }
 }
 
-string TerminalHandler::pollUserTerminal()
-{
-  if (!run)
-  {
+string TerminalHandler::pollUserTerminal() {
+  if (!run) {
     return string();
   }
 
@@ -97,25 +90,20 @@ string TerminalHandler::pollUserTerminal()
   tv.tv_usec = 10000;
   select(masterFd + 1, &rfd, NULL, NULL, &tv);
 
-  try
-  {
+  try {
     // Check for data to receive; the received
     // data includes also the data previously sent
     // on the same master descriptor (line 90).
-    if (FD_ISSET(masterFd, &rfd))
-    {
+    if (FD_ISSET(masterFd, &rfd)) {
       // Read from terminal and write to client
       memset(b, 0, BUF_SIZE);
       int rc = read(masterFd, b, BUF_SIZE);
       FATAL_FAIL(rc);
-      if (rc > 0)
-      {
+      if (rc > 0) {
         return string(b, rc);
-      }
-      else
-      {
+      } else {
         LOG(INFO) << "Terminal session ended";
-#if __NetBSD__ // this unfortunateness seems to be fixed in NetBSD-8 (or at \
+#if __NetBSD__  // this unfortunateness seems to be fixed in NetBSD-8 (or at \
                // least -CURRENT) sadness for now :/
         int throwaway;
         FATAL_FAIL(waitpid(childPid, &throwaway, WUNTRACED));
@@ -130,9 +118,7 @@ string TerminalHandler::pollUserTerminal()
         return string();
       }
     }
-  }
-  catch (std::exception ex)
-  {
+  } catch (std::exception ex) {
     LOG(INFO) << ex.what();
     run = false;
 #ifdef WITH_UTEMPTER
@@ -143,8 +129,17 @@ string TerminalHandler::pollUserTerminal()
   return string();
 }
 
-void TerminalHandler::appendData(const string &data)
-{
+void TerminalHandler::appendData(const string &data) {
   RawSocketUtils::writeAll(masterFd, &data[0], data.length());
 }
-} // namespace et
+
+void TerminalHandler::stop() {
+  kill(childPid, SIGTERM);
+  siginfo_t childInfo;
+  int rc = waitid(P_PID, childPid, &childInfo, WEXITED);
+  if (rc < 0 && errno != ECHILD) {
+    FATAL_FAIL(rc);
+  }
+}
+
+}  // namespace et
