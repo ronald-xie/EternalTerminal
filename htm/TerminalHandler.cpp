@@ -21,7 +21,7 @@
 #include <util.h>
 #elif __FreeBSD__
 #include <libutil.h>
-#elif __NetBSD__  // do not need pty.h on NetBSD
+#elif __NetBSD__ // do not need pty.h on NetBSD
 #else
 #include <pty.h>
 #endif
@@ -36,129 +36,115 @@
 
 #include "ETerminal.pb.h"
 
-namespace et {
-TerminalHandler::TerminalHandler() {}
+namespace et
+{
+TerminalHandler::TerminalHandler() : run(true) {}
 
-void TerminalHandler::run() {
-  int masterfd;
-
-  pid_t pid = forkpty(&masterfd, NULL, NULL, NULL);
-  switch (pid) {
-    case -1:
-      FATAL_FAIL(pid);
-    case 0: {
-      close(routerFd);
-      passwd *pwd = getpwuid(getuid());
-      chdir(pwd->pw_dir);
-      string terminal = string(::getenv("SHELL"));
-      VLOG(1) << "Child process " << pid << " launching terminal " << terminal
-              << endl;
-      setenv("HTM_VERSION", ET_VERSION, 1);
-      execl(terminal.c_str(), terminal.c_str(), "--login", NULL);
-      exit(0);
-      break;
+void TerminalHandler::start()
+{
+  pid_t pid = forkpty(&masterFd, NULL, NULL, NULL);
+  switch (pid)
+  {
+  case -1:
+    FATAL_FAIL(pid);
+  case 0:
+  {
+    passwd *pwd = getpwuid(getuid());
+    chdir(pwd->pw_dir);
+    string terminal = string(::getenv("SHELL"));
+    VLOG(1) << "Child process " << pid << " launching terminal " << terminal
+            << endl;
+    setenv("HTM_VERSION", ET_VERSION, 1);
+    execl(terminal.c_str(), terminal.c_str(), "--login", NULL);
+    exit(0);
+    break;
+  }
+  default:
+  {
+    // parent
+    VLOG(1) << "pty opened " << masterFd << endl;
+    childPid = pid;
+#ifdef WITH_UTEMPTER
+    {
+      char buf[1024];
+      sprintf(buf, "htm [%lld]", (long long)getpid());
+      utempter_add_record(masterFd, buf);
     }
-    default: {
-      // parent
-      VLOG(1) << "pty opened " << masterfd << endl;
-      runUserTerminal(masterfd, pid);
-      close(routerFd);
-      break;
-    }
+#endif
+    break;
+  }
   }
 }
 
-void TerminalHandler::runUserTerminal(int masterFd, pid_t childPid) {
-#ifdef WITH_UTEMPTER
+string TerminalHandler::pollUserTerminal()
+{
+  if (!run)
   {
-    char buf[1024];
-    sprintf(buf, "htm [%lld]", (long long)getpid());
-    utempter_add_record(masterFd, buf);
+    return string();
   }
-#endif
-
-  bool run = true;
 
 #define BUF_SIZE (16 * 1024)
   char b[BUF_SIZE];
 
-  while (run) {
-    // Data structures needed for select() and
-    // non-blocking I/O.
-    fd_set rfd;
-    timeval tv;
+  // Data structures needed for select() and
+  // non-blocking I/O.
+  fd_set rfd;
+  timeval tv;
 
-    FD_ZERO(&rfd);
-    FD_SET(masterFd, &rfd);
-    FD_SET(routerFd, &rfd);
-    int maxfd = max(masterFd, routerFd);
-    tv.tv_sec = 0;
-    tv.tv_usec = 10000;
-    select(maxfd + 1, &rfd, NULL, NULL, &tv);
+  FD_ZERO(&rfd);
+  FD_SET(masterFd, &rfd);
+  tv.tv_sec = 0;
+  tv.tv_usec = 10000;
+  select(masterFd + 1, &rfd, NULL, NULL, &tv);
 
-    try {
-      // Check for data to receive; the received
-      // data includes also the data previously sent
-      // on the same master descriptor (line 90).
-      if (FD_ISSET(masterFd, &rfd)) {
-        // Read from terminal and write to client
-        memset(b, 0, BUF_SIZE);
-        int rc = read(masterFd, b, BUF_SIZE);
-        FATAL_FAIL(rc);
-        if (rc > 0) {
-          RawSocketUtils::writeAll(routerFd, b, rc);
-        } else {
-          LOG(INFO) << "Terminal session ended";
-#if __NetBSD__  // this unfortunateness seems to be fixed in NetBSD-8 (or at
-                // least -CURRENT) sadness for now :/
-          int throwaway;
-          FATAL_FAIL(waitpid(childPid, &throwaway, WUNTRACED));
+  try
+  {
+    // Check for data to receive; the received
+    // data includes also the data previously sent
+    // on the same master descriptor (line 90).
+    if (FD_ISSET(masterFd, &rfd))
+    {
+      // Read from terminal and write to client
+      memset(b, 0, BUF_SIZE);
+      int rc = read(masterFd, b, BUF_SIZE);
+      FATAL_FAIL(rc);
+      if (rc > 0)
+      {
+        return string(b, rc);
+      }
+      else
+      {
+        LOG(INFO) << "Terminal session ended";
+#if __NetBSD__ // this unfortunateness seems to be fixed in NetBSD-8 (or at \
+               // least -CURRENT) sadness for now :/
+        int throwaway;
+        FATAL_FAIL(waitpid(childPid, &throwaway, WUNTRACED));
 #else
-          siginfo_t childInfo;
-          FATAL_FAIL(waitid(P_PID, childPid, &childInfo, WEXITED));
+        siginfo_t childInfo;
+        FATAL_FAIL(waitid(P_PID, childPid, &childInfo, WEXITED));
 #endif
-          run = false;
-          break;
-        }
+        run = false;
+#ifdef WITH_UTEMPTER
+        utempter_remove_record(masterFd);
+#endif
+        return string();
       }
-
-      if (FD_ISSET(routerFd, &rfd)) {
-        char packetType;
-        int rc = read(routerFd, &packetType, 1);
-        FATAL_FAIL(rc);
-        if (rc == 0) {
-          throw std::runtime_error(
-              "Router has ended abruptly.  Killing terminal session.");
-        }
-        switch (packetType) {
-          case TERMINAL_BUFFER: {
-            TerminalBuffer tb =
-                RawSocketUtils::readProto<TerminalBuffer>(routerFd);
-            const string &buffer = tb.buffer();
-            RawSocketUtils::writeAll(masterFd, &buffer[0], buffer.length());
-            break;
-          }
-          case TERMINAL_INFO: {
-            TerminalInfo ti = RawSocketUtils::readProto<TerminalInfo>(routerFd);
-            winsize tmpwin;
-            tmpwin.ws_row = ti.row();
-            tmpwin.ws_col = ti.column();
-            tmpwin.ws_xpixel = ti.width();
-            tmpwin.ws_ypixel = ti.height();
-            ioctl(masterFd, TIOCSWINSZ, &tmpwin);
-            break;
-          }
-        }
-      }
-    } catch (std::exception ex) {
-      LOG(INFO) << ex.what();
-      run = false;
-      break;
     }
   }
-
+  catch (std::exception ex)
+  {
+    LOG(INFO) << ex.what();
+    run = false;
 #ifdef WITH_UTEMPTER
-  utempter_remove_record(masterFd);
+    utempter_remove_record(masterFd);
 #endif
+  }
+
+  return string();
 }
-}  // namespace et
+
+void TerminalHandler::appendData(const string &data)
+{
+  RawSocketUtils::writeAll(masterFd, &data[0], data.length());
+}
+} // namespace et

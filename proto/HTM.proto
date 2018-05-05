@@ -7,6 +7,7 @@ enum PacketHeader {
   INIT_STATE = 2;
   CLOSE_PANE = 3;
   APPEND_TO_PANE = 4;
+  NEW_TAB = 5;
 }
 
 message Pane {
@@ -32,13 +33,7 @@ message Tab {
   PaneOrSplitPane pane = 4;
 }
 
-message Buffer {
-  string pane_id = 1;
-  bytes content = 2;
-}
-
 message State {
   repeated Tab tab = 1;
-  repeated Buffer buffer = 2;
-  string shell = 3;
+  string shell = 2;
 }

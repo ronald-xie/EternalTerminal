@@ -185,6 +185,7 @@ add_executable (
 
   ${HTM_SRCS}
   htm/Main.cpp
+  htm/TerminalHandler.cpp
   )
 
 target_link_libraries (

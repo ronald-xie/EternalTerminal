@@ -3,18 +3,21 @@
 
 #include "Headers.hpp"
 
-namespace htm {
-class TerminalHandler {
- public:
+namespace et
+{
+class TerminalHandler
+{
+public:
   TerminalHandler();
-  void connectToRouter(const string& idPasskey);
-  void run();
+  void start();
+  string pollUserTerminal();
+  void appendData(const string &data);
 
- protected:
-  int routerFd;
-
-  void runUserTerminal(int masterFd, pid_t childPid);
+protected:
+  int masterFd;
+  int childPid;
+  bool run;
 };
-}  // namespace htm
+} // namespace htm
 
-#endif  // __HTM_TERMINAL_HANDLER__
+#endif // __HTM_TERMINAL_HANDLER__

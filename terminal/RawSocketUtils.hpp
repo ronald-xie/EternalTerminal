@@ -19,6 +19,14 @@ class RawSocketUtils {
     return writeAll(fd, &s[0], s.length());
   }
 
+  static inline void readB64(int fd, char* buf, size_t count) {
+    int encodedLength = base64::Base64::EncodedLength(count);
+    LOG(ERROR) << "ENCODED LENGTH: " << encodedLength;
+    string s(encodedLength, '\0');
+    readAll(fd, &s[0], s.length());
+    base64::Base64::Decode((const char *)&s[0], s.length(), buf, count);
+  }
+
   static inline string readMessage(int fd) {
     int64_t length;
     readAll(fd, (char*)&length, sizeof(int64_t));
